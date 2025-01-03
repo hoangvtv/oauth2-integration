@@ -7,7 +7,6 @@ import java.util.Date;
 import java.util.StringJoiner;
 import java.util.UUID;
 
-import com.phamtanhoang.identity_service.dto.request.*;
 import com.phamtanhoang.identity_service.repository.httpclient.OutboundIdentityClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -15,6 +14,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import com.phamtanhoang.identity_service.dto.request.AuthenticationRequest;
+import com.phamtanhoang.identity_service.dto.request.ExchangeTokenRequest;
+import com.phamtanhoang.identity_service.dto.request.IntrospectRequest;
+import com.phamtanhoang.identity_service.dto.request.LogoutRequest;
+import com.phamtanhoang.identity_service.dto.request.RefreshRequest;
 import com.phamtanhoang.identity_service.dto.response.AuthenticationResponse;
 import com.phamtanhoang.identity_service.dto.response.IntrospectResponse;
 import com.phamtanhoang.identity_service.entity.InvalidatedToken;
@@ -58,7 +62,7 @@ public class AuthenticationService {
 
   @NonFinal
   @Value("${outbound.identity.client-id}")
-  protected String CLIENT_ID ;
+  protected String CLIENT_ID;
 
   @NonFinal
   @Value("${outbound.identity.client-secret}")
@@ -69,7 +73,7 @@ public class AuthenticationService {
   protected String REDIRECT_URI;
 
   @NonFinal
-  protected String GRANT_TYPE = "authorization_code";
+  protected final String GRANT_TYPE = "authorization_code";
 
   public IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException {
     var token = request.getToken();
@@ -84,22 +88,28 @@ public class AuthenticationService {
     return IntrospectResponse.builder().valid(isValid).build();
   }
 
-  public AuthenticationResponse outboundAuthentication(String code) {
+  public AuthenticationResponse outboundAuthenticate(String code) {
 
-    var response = outboundIdentityClient.exchangeToken(ExchangeTokenRequest.builder()
-            .code(code)
-            .clientId(CLIENT_ID)
-            .clientSecret(CLIENT_SECRET)
-            .redirectUri(REDIRECT_URI)
-            .grantType(GRANT_TYPE)
-            .build());
-
-    log.info("TOKEN {}", response);
-
-
-    return AuthenticationResponse.builder()
-        .token(response.getAccessToken())
+    var request = ExchangeTokenRequest.builder()
+        .code(code)
+        .clientId(CLIENT_ID)
+        .clientSecret(CLIENT_SECRET)
+        .redirectUri(REDIRECT_URI)
+        .grantType(GRANT_TYPE)
         .build();
+
+    log.info("request {}", request);
+    var response = outboundIdentityClient.exchangeToken(ExchangeTokenRequest.builder()
+        .code(code)
+        .clientId(CLIENT_ID)
+        .clientSecret(CLIENT_SECRET)
+        .redirectUri(REDIRECT_URI)
+        .grantType(GRANT_TYPE)
+        .build());
+
+    log.info("TOKEN RESPONSE {}", response);
+
+    return AuthenticationResponse.builder().token(response.getAccessToken()).build();
   }
 
   public AuthenticationResponse authenticate(AuthenticationRequest request) {
@@ -162,8 +172,7 @@ public class AuthenticationService {
         .issuer("devteria.com")
         .issueTime(new Date())
         .expirationTime(new Date(
-            Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()
-        ))
+            Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()))
         .jwtID(UUID.randomUUID().toString())
         .claim("scope", buildScope(user))
         .build();
@@ -187,8 +196,12 @@ public class AuthenticationService {
     SignedJWT signedJWT = SignedJWT.parse(token);
 
     Date expiryTime = (isRefresh)
-        ? new Date(signedJWT.getJWTClaimsSet().getIssueTime()
-        .toInstant().plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS).toEpochMilli())
+        ? new Date(signedJWT
+        .getJWTClaimsSet()
+        .getIssueTime()
+        .toInstant()
+        .plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS)
+        .toEpochMilli())
         : signedJWT.getJWTClaimsSet().getExpirationTime();
 
     var verified = signedJWT.verify(verifier);

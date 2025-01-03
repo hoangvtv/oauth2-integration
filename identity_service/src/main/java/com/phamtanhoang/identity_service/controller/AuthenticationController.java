@@ -8,6 +8,8 @@ import com.phamtanhoang.identity_service.service.AuthenticationService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.ParseException;
@@ -17,14 +19,14 @@ import java.text.ParseException;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthenticationController {
+    private static final Logger log = LoggerFactory.getLogger(AuthenticationController.class);
     AuthenticationService authenticationService;
 
     @PostMapping("/outbound/authentication")
-    ApiResponse<AuthenticationResponse> outboundAuthentication(
-        @RequestParam("code") String code) {
-        return ApiResponse.<AuthenticationResponse>builder()
-            .result(authenticationService.outboundAuthentication(code))
-            .build();
+    ApiResponse<AuthenticationResponse> outboundAuthenticate(@RequestParam("code") String code) {
+        log.info("code: {}", code);
+        var result = authenticationService.outboundAuthenticate(code);
+        return ApiResponse.<AuthenticationResponse>builder().result(result).build();
     }
 
     @PostMapping("/token")
