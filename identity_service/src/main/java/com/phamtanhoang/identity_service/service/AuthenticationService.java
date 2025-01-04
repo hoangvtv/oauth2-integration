@@ -91,16 +91,7 @@ public class AuthenticationService {
   }
 
   public AuthenticationResponse outboundAuthenticate(String code) {
-
-    var request = ExchangeTokenRequest.builder()
-        .code(code)
-        .clientId(CLIENT_ID)
-        .clientSecret(CLIENT_SECRET)
-        .redirectUri(REDIRECT_URI)
-        .grantType(GRANT_TYPE)
-        .build();
-
-    log.info("request {}", request);
+    // get token
     var response = outboundIdentityClient.exchangeToken(ExchangeTokenRequest.builder()
         .code(code)
         .clientId(CLIENT_ID)
@@ -113,10 +104,11 @@ public class AuthenticationService {
 
     var userInfo = outboundUserClient.getUserInfo("json", response.getAccessToken());
 
+    //Onboard user
     Set<Role> roles = new HashSet<>();
     roles.add(Role.builder().name(PredefinedRole.USER_ROLE).build());
 
-    userRepository.findByUsername(userInfo.getEmail())
+    var user = userRepository.findByUsername(userInfo.getEmail())
         .orElseGet(() -> userRepository.save(User.builder()
             .username(userInfo.getEmail())
             .firstName(userInfo.getGivenName())
@@ -126,7 +118,11 @@ public class AuthenticationService {
 
     log.info("USER INFO {}", userInfo);
 
-    return AuthenticationResponse.builder().token(response.getAccessToken()).build();
+    var token = generateToken(user);
+
+    return AuthenticationResponse.builder()
+        .token(token)
+        .build();
   }
 
   public AuthenticationResponse authenticate(AuthenticationRequest request) {

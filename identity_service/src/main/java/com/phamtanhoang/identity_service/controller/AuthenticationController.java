@@ -1,6 +1,7 @@
 package com.phamtanhoang.identity_service.controller;
 
 import com.nimbusds.jose.JOSEException;
+import com.phamtanhoang.identity_service.dto.ApiResponse;
 import com.phamtanhoang.identity_service.dto.request.*;
 import com.phamtanhoang.identity_service.dto.response.AuthenticationResponse;
 import com.phamtanhoang.identity_service.dto.response.IntrospectResponse;
