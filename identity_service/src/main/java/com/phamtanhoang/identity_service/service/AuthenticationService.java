@@ -3,11 +3,12 @@ package com.phamtanhoang.identity_service.service;
 import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.StringJoiner;
-import java.util.UUID;
+import java.util.*;
 
+import com.phamtanhoang.identity_service.constant.PredefinedRole;
+import com.phamtanhoang.identity_service.entity.Role;
 import com.phamtanhoang.identity_service.repository.httpclient.OutboundIdentityClient;
+import com.phamtanhoang.identity_service.repository.httpclient.OutboundUserClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -47,6 +48,7 @@ public class AuthenticationService {
   UserRepository userRepository;
   InvalidatedTokenRepository invalidatedTokenRepository;
   OutboundIdentityClient outboundIdentityClient;
+  OutboundUserClient outboundUserClient;
 
   @NonFinal
   @Value("${jwt.signerKey}")
@@ -108,6 +110,21 @@ public class AuthenticationService {
         .build());
 
     log.info("TOKEN RESPONSE {}", response);
+
+    var userInfo = outboundUserClient.getUserInfo("json", response.getAccessToken());
+
+    Set<Role> roles = new HashSet<>();
+    roles.add(Role.builder().name(PredefinedRole.USER_ROLE).build());
+
+    userRepository.findByUsername(userInfo.getEmail())
+        .orElseGet(() -> userRepository.save(User.builder()
+            .username(userInfo.getEmail())
+            .firstName(userInfo.getGivenName())
+            .lastName(userInfo.getFamilyName())
+            .roles(roles)
+            .build()));
+
+    log.info("USER INFO {}", userInfo);
 
     return AuthenticationResponse.builder().token(response.getAccessToken()).build();
   }
